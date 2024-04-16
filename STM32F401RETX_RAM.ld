@@ -45,7 +45,8 @@ _Min_Stack_Size = 0x512; /* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 512K
+  MY_MEMORY		(rx)	: ORIGIN = 0x08000000,	LENGTH = 16K
+  FLASH    (rx)    : ORIGIN = 0x08004000,   LENGTH = 496K
 }
 
 /* Sections */
@@ -77,6 +78,15 @@ SECTIONS
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
   } >RAM
+  
+  
+  .mysection :
+  {
+  	. = ALIGN(4);
+    __mysection_start__ = .;
+	*overwrite.o (.text .text*)
+    __mysection_end__ = .;
+  } > MY_MEMORY
 
   /* Constant data into "RAM" Ram type memory */
   .rodata :

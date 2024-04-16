@@ -39,13 +39,21 @@ ENTRY(Reset_Handler)
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
 
 _Min_Heap_Size = 0x200; /* required amount of heap */
-_Min_Stack_Size = 0x512; /* required amount of stack */
+_Min_Stack_Size = 0x400; /* required amount of stack */
 
 /* Memories definition */
 MEMORY
 {
+  /*RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K */
+  /*FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 512K */
+  
+  /*RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K
+  FLASH    (rx)    : ORIGIN = 0x08004000,   LENGTH = 384K
+  MY_MEMORY		(rx)	: ORIGIN = 0x08060000,	LENGTH = 128K */
+  
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 512K
+  FLASH    (rx)    : ORIGIN = 0x08000000,   LENGTH = 384K
+  MY_MEMORY		(rx)	: ORIGIN = 0x08060000,	LENGTH = 128K
 }
 
 /* Sections */
@@ -75,6 +83,15 @@ SECTIONS
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
+  
+  /* User defined section */
+  .mysection :
+  {
+  	. = ALIGN(4);
+    __mysection_start__ = .;
+	*overwrite.o (.text .text*)
+    __mysection_end__ = .;
+  } > MY_MEMORY
 
   /* Constant data into "FLASH" Rom type memory */
   .rodata :
@@ -180,6 +197,9 @@ SECTIONS
     libm.a ( * )
     libgcc.a ( * )
   }
+  
+  /* Check if MY_MEMORY usage exceeds MY_MEMORY size */
+  ASSERT( LENGTH(MY_MEMORY) >= (__mysection_end__ - __mysection_start__), "MY_MEMORY memory overflowed !")
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }

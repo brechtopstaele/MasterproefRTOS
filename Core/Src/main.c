@@ -56,12 +56,12 @@ osThreadId receiveTaskHandle;
 /* USER CODE BEGIN PV */
 
 /* Virtual address defined by the user: 0xFFFF value is prohibited */
-uint16_t VirtAddVarTab[NB_OF_VAR];
+/*uint16_t VirtAddVarTab[NB_OF_VAR];
 uint16_t VarDataTab[NB_OF_VAR] = { 'M', 'a', 't', 'e', 'u', 's', 'z', ' ', 'S',
 		'a', 'l', 'a', 'm', 'o', 'n', ' ', 'm', 's', 'a', 'l', 'a', 'm', 'o',
 		'n', '.', 'p', 'l' };
 uint8_t VarDataTabRead[NB_OF_VAR];
-uint16_t VarIndex, VarDataTmp = 0;
+uint16_t VarIndex, VarDataTmp = 0;*/
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,6 +79,7 @@ void StartReceiveTask(void const * argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//#define LOCATE_FUNC  __attribute__((__section__(".mysection")))
 
 /* USER CODE END 0 */
 
@@ -88,6 +89,7 @@ void StartReceiveTask(void const * argument);
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -150,6 +152,7 @@ int main(void)
   osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -351,6 +354,8 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -381,7 +386,7 @@ void StartDefaultTask(void const * argument)
 /* USER CODE END Header_StartReceiveTask */
 void StartReceiveTask(void const * argument)
 {
-	/* USER CODE BEGIN StartReceiveTask */
+  /* USER CODE BEGIN StartReceiveTask */
 	uint16_t has_written = 0;
 	char input[100];
 	/* Infinite loop */
@@ -402,106 +407,7 @@ void StartReceiveTask(void const * argument)
 		}
 
 		if(has_written == 0){
-			/* Unlock the Flash Program Erase controller */
-			HAL_FLASH_Unlock();
-
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-
-			/* EEPROM Init */
-			if (EE_Init() != EE_OK) {
-				Error_Handler();
-			}
-
-			// Fill EEPROM variables addresses
-			for (VarIndex = 1; VarIndex <= NB_OF_VAR; VarIndex++) {
-				VirtAddVarTab[VarIndex - 1] = VarIndex;
-			}
-
-			// Store Values in EEPROM emulation
-			HAL_UART_Transmit(&huart2, "Store values\n\r", 14, 100);
-
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-			for (VarIndex = 0; VarIndex < NB_OF_VAR; VarIndex++) {
-				/* Sequence 1 */
-				if ((EE_WriteVariable(VirtAddVarTab[VarIndex], VarDataTab[VarIndex]))
-						!= HAL_OK) {
-					Error_Handler();
-				}
-			}
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-
-			// Read values
-			HAL_UART_Transmit(&huart2, "Read values\n\r", 13, 100);
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-			for (VarIndex = 0; VarIndex < NB_OF_VAR; VarIndex++) {
-				if ((EE_ReadVariable(VirtAddVarTab[VarIndex],
-						&VarDataTabRead[VarIndex])) != HAL_OK) {
-					Error_Handler();
-				}
-			}
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-
-			HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
-			HAL_UART_Transmit(&huart2, VarDataTabRead, NB_OF_VAR, 1000);
-			HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-
-			// Store revert Values in EEPROM emulation
-			HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-			HAL_UART_Transmit(&huart2, "Store revert values\n\r", 21, 100);
-
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-			for (VarIndex = 0; VarIndex < NB_OF_VAR; VarIndex++) {
-				/* Sequence 1 */
-				if ((EE_WriteVariable(VirtAddVarTab[VarIndex],
-						VarDataTab[NB_OF_VAR - VarIndex - 1])) != HAL_OK) {
-					Error_Handler();
-				}
-			}
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-
-			// Read values
-			HAL_UART_Transmit(&huart2, "Read revert values\n\r", 20, 100);
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-			for (VarIndex = 0; VarIndex < NB_OF_VAR; VarIndex++) {
-				if ((EE_ReadVariable(VirtAddVarTab[VarIndex],
-						&VarDataTabRead[VarIndex])) != HAL_OK) {
-					Error_Handler();
-				}
-			}
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-
-			HAL_UART_Transmit(&huart2, "Read revert table: ", 19, 100);
-			HAL_UART_Transmit(&huart2, VarDataTabRead, NB_OF_VAR, 1000);
-			HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-
-			// Store Values in EEPROM emulation
-			HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-			HAL_UART_Transmit(&huart2, "Store values\n\r", 14, 100);
-
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-			for (VarIndex = 0; VarIndex < NB_OF_VAR; VarIndex++) {
-				/* Sequence 1 */
-				if ((EE_WriteVariable(VirtAddVarTab[VarIndex], VarDataTab[VarIndex]))
-						!= HAL_OK) {
-					Error_Handler();
-				}
-			}
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-
-			// Read values
-			HAL_UART_Transmit(&huart2, "Read values\n\r", 13, 100);
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-			for (VarIndex = 0; VarIndex < NB_OF_VAR; VarIndex++) {
-				if ((EE_ReadVariable(VirtAddVarTab[VarIndex],
-						&VarDataTabRead[VarIndex])) != HAL_OK) {
-					Error_Handler();
-				}
-			}
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-
-			HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
-			HAL_UART_Transmit(&huart2, VarDataTabRead, NB_OF_VAR, 1000);
-			HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
+			writeToFlash(huart2);
 			has_written = 1;
 		} else {
 			printf("Code was already saved.");
