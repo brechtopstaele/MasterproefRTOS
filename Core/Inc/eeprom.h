@@ -59,14 +59,14 @@
 #define EE_TIMEOUT (uint32_t)HAL_TIMEOUT
 
 /* Define the size of the sectors to be used */
-#define PAGE_SIZE               (uint32_t)0x4000  /* Page size = 16KByte */
+#define PAGE_SIZE               (uint32_t)0x4000  /* Page size = 128KByte */
 
 /* Device voltage range supposed to be [2.7V to 3.6V], the operation will 
    be done by word  */
 #define VOLTAGE_RANGE           (uint8_t)VOLTAGE_RANGE_3
 
 /* EEPROM start address in Flash */
-#define EEPROM_START_ADDRESS  ((uint32_t)0x08008000) /* EEPROM emulation start address:
+#define EEPROM_START_ADDRESS  ((uint32_t)0x08060000) /* EEPROM emulation start address:
                                                   from sector2 : after 16KByte of used 
                                                   Flash memory */
 

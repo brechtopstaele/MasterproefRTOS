@@ -47,9 +47,9 @@ MEMORY
   /*RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K */
   /*FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 512K */
   
-  /*RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K
-  FLASH    (rx)    : ORIGIN = 0x08004000,   LENGTH = 384K
-  MY_MEMORY		(rx)	: ORIGIN = 0x08060000,	LENGTH = 128K */
+  /*RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K*/
+  /*FLASH    (rx)    : ORIGIN = 0x08004000,   LENGTH = 384K*/
+  /*MY_MEMORY		(rx)	: ORIGIN = 0x08060000,	LENGTH = 128K */
   
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K
   FLASH    (rx)    : ORIGIN = 0x08000000,   LENGTH = 384K
@@ -85,13 +85,13 @@ SECTIONS
   } >FLASH
   
   /* User defined section */
-  .mysection :
+  /*.mysection :
   {
   	. = ALIGN(4);
     __mysection_start__ = .;
 	*overwrite.o (.text .text*)
     __mysection_end__ = .;
-  } > MY_MEMORY
+  } > MY_MEMORY*/
 
   /* Constant data into "FLASH" Rom type memory */
   .rodata :
@@ -199,7 +199,7 @@ SECTIONS
   }
   
   /* Check if MY_MEMORY usage exceeds MY_MEMORY size */
-  ASSERT( LENGTH(MY_MEMORY) >= (__mysection_end__ - __mysection_start__), "MY_MEMORY memory overflowed !")
+  /*ASSERT( LENGTH(MY_MEMORY) >= (__mysection_end__ - __mysection_start__), "MY_MEMORY memory overflowed !")*/
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }

@@ -116,7 +116,8 @@ int main(void)
   MX_TIM1_Init();
   MX_CRC_Init();
   /* USER CODE BEGIN 2 */
-
+  RetargetInit(&huart2);
+  printf("Starting up.....\n");
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -398,7 +399,7 @@ void StartReceiveTask(void const * argument)
 		//TODO: fgets doesn't read newline?
 		if (fgets(input, 10, stdin)) {
 			size_t len = strlen(input);
-			if (feof(stdin) || (len != 0 && input[len - 1] == '\n'))
+			if (feof(stdin) || (len != 0 /*&& input[len - 1] == '\n'*/))
 				printf("\r\n Code received:  %s \r\n", input);
 			else
 				printf("Invalid input, please respect the limit of 100 characters.");
@@ -406,12 +407,17 @@ void StartReceiveTask(void const * argument)
 			printf("Invalid input, please respect the limit of 100 characters.");
 		}
 
+		//CRC
+		uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
+		printf("CRC Value: %u \r\n", crcValue);
+
+		//Write to flash
 		if(has_written == 0){
-			writeToFlash(huart2);
+
+			writeToFlash(huart2, input);
 			has_written = 1;
-		} else {
-			printf("Code was already saved.");
 		}
+		osDelay(1000);
 	}
   /* USER CODE END StartReceiveTask */
 }
