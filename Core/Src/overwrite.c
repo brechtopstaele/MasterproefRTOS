@@ -15,8 +15,8 @@ uint8_t VarDataTabRead[NB_OF_VAR];
 uint16_t VarDataTmp = 0;
 
 
-void writeToFlash(UART_HandleTypeDef huart2, uint16_t data[100]){
-	uint8_t dataLength = sizeof(data);
+void writeToFlash(UART_HandleTypeDef huart2, char data[100]){
+	uint8_t dataLength = strlen(data);
 
 	// Unlock the Flash Program Erase controller
 	HAL_FLASH_Unlock();
@@ -55,55 +55,21 @@ void writeToFlash(UART_HandleTypeDef huart2, uint16_t data[100]){
 	HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
 	HAL_UART_Transmit(&huart2, VarDataTabRead, dataLength, 1000);
 	HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
+}
 
-	// Store revert Values in EEPROM emulation
-	HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-	HAL_UART_Transmit(&huart2, "Store revert values\n\r", 21, 100);
-
-	for (uint16_t i = 0; i < dataLength; i++) {
-		/* Sequence 1 */
-		if ((EE_WriteVariable(VirtAddVarTab[i],
-				VarDataTab[dataLength - i - 1])) != HAL_OK) {
-			Error_Handler();
-		}
-	}
-
-	// Read values
-	HAL_UART_Transmit(&huart2, "Read revert values\n\r", 20, 100);
-	for (uint16_t i = 0; i < dataLength; i++) {
-		if ((EE_ReadVariable(VirtAddVarTab[i],
-				&VarDataTabRead[i])) != HAL_OK) {
-			Error_Handler();
-		}
-	}
-
-	HAL_UART_Transmit(&huart2, "Read revert table: ", 19, 100);
-	HAL_UART_Transmit(&huart2, VarDataTabRead, dataLength, 1000);
-	HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-
-	// Store Values in EEPROM emulation
-	HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-	HAL_UART_Transmit(&huart2, "Store values\n\r", 14, 100);
-
-	for (uint16_t i = 0; i < dataLength; i++) {
-		/* Sequence 1 */
-		if ((EE_WriteVariable(VirtAddVarTab[i], VarDataTab[i]))
-				!= HAL_OK) {
-			Error_Handler();
-		}
-	}
+void readFlash(UART_HandleTypeDef huart2, uint8_t dataLength){
+	uint8_t readData[NB_OF_VAR];
 
 	// Read values
 	HAL_UART_Transmit(&huart2, "Read values\n\r", 13, 100);
 	for (uint16_t i = 0; i < dataLength; i++) {
 		if ((EE_ReadVariable(VirtAddVarTab[i],
-				&VarDataTabRead[i])) != HAL_OK) {
+				&readData[i])) != HAL_OK) {
 			Error_Handler();
 		}
 	}
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 
 	HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
-	HAL_UART_Transmit(&huart2, VarDataTabRead, dataLength, 1000);
+	HAL_UART_Transmit(&huart2, readData, dataLength, 1000);
 	HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
 }

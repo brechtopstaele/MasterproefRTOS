@@ -118,6 +118,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   RetargetInit(&huart2);
   printf("Starting up.....\n");
+
+  // Write initial data to EEPROM
+  char data[100] = "This is the original data";
+  writeToFlash(huart2, data);
+
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -394,13 +399,32 @@ void StartReceiveTask(void const * argument)
 	for (;;) {
 
 		// Read the user input
-		printf("\r\n Code to update: \n");
+		printf("\r\n Code to update: \r\n");
 		//if(scanf("%s", input) != -1){
 		//TODO: fgets doesn't read newline?
 		if (fgets(input, 10, stdin)) {
 			size_t len = strlen(input);
+			printf("Length: %d", len);
 			if (feof(stdin) || (len != 0 /*&& input[len - 1] == '\n'*/))
 				printf("\r\n Code received:  %s \r\n", input);
+
+				//Write to flash
+				//uint16_t data[100];
+				for(uint8_t i = 0; i<len; i++){
+					printf("%d", input[i]);
+					//sscanf(input[i], "%d", data[i]);
+				}
+				printf("\r\n");
+
+				//readFlash(huart2, 26);
+
+				char data[100] = "Hello, this is updated code";
+
+				if(has_written == 0){
+					writeToFlash(huart2, data);
+					has_written = 1;
+				}
+
 			else
 				printf("Invalid input, please respect the limit of 100 characters.");
 		} else {
@@ -411,12 +435,7 @@ void StartReceiveTask(void const * argument)
 		uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
 		printf("CRC Value: %u \r\n", crcValue);
 
-		//Write to flash
-		if(has_written == 0){
 
-			writeToFlash(huart2, input);
-			has_written = 1;
-		}
 		osDelay(1000);
 	}
   /* USER CODE END StartReceiveTask */
