@@ -55,6 +55,10 @@ UART_HandleTypeDef huart2;
 osThreadId defaultTaskHandle;
 osThreadId receiveTaskHandle;
 osThreadId statusTaskHandle;
+osThreadId updateTaskHandle;
+
+uint8_t version = 1;
+int statusDelay = 10000;
 /* USER CODE BEGIN PV */
 
 /* Virtual address defined by the user: 0xFFFF value is prohibited */
@@ -76,6 +80,7 @@ static void MX_USART1_UART_Init(void);
 void StartDefaultTask(void const * argument);
 void StartReceiveTask(void const * argument);
 void StartStatusTask(void const * argument);
+void StartUpdateTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -159,8 +164,14 @@ int main(void)
   osThreadDef(statusTask, StartStatusTask, osPriorityNormal, 0, 128);
   statusTaskHandle = osThreadCreate(osThread(statusTask), NULL);
 
+  /* definition and creation of updateTask */
+  osThreadDef(updateTask, StartUpdateTask, osPriorityNormal, 0, 128);
+  updateTaskHandle = osThreadCreate(osThread(updateTask), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+  vTaskSuspend(receiveTaskHandle);
+  vTaskSuspend(updateTaskHandle);
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -396,13 +407,27 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
 
-
+// Interrupt handler
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  // Execute when blue push button pressed
+  if(GPIO_Pin == GPIO_PIN_13) {
+	  printf("F401: Button pressed, starting receive task \r\n");
+	  vTaskResume(receiveTaskHandle);
+  } else {
+      __NOP();
+  }
+}
 
 /* USER CODE END 4 */
 
@@ -420,6 +445,7 @@ void StartDefaultTask(void const * argument)
   for(;;)
   {
 	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+	  //printf("F401: Normal operation \r\n");
 	  osDelay(200);
   }
   /* USER CODE END 5 */
@@ -477,7 +503,8 @@ void StartReceiveTask(void const * argument)
 		uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
 		printf("CRC Value: %u \r\n", crcValue);
 
-		osDelay(1000);
+		vTaskSuspend(receiveTaskHandle);
+		osDelay(1);
 	}
   /* USER CODE END StartReceiveTask */
 }
@@ -492,15 +519,40 @@ void StartReceiveTask(void const * argument)
 void StartStatusTask(void const * argument)
 {
   /* USER CODE BEGIN StartStatusTask */
+  int prevTime = HAL_GetTick();
   /* Infinite loop */
   for(;;)
   {
-	  printf("F401: Starting transmission \r\n");
-	  uint8_t tx_buff[]={0,1,2,3,4,5,6,7,8,9};
-	  HAL_UART_Transmit(&huart1, tx_buff, 10, 1000);
-	  HAL_Delay(10000);
+	  int currentTime = HAL_GetTick();
+	  if(currentTime < prevTime + statusDelay) {
+		  osDelay(currentTime + statusDelay - currentTime);
+	  } else {
+		  printf("F401: Starting status transmission \r\n");
+		  uint8_t checkSum = 2+version;
+		  uint8_t tx_buff[]={1,0,1,0,version,checkSum};
+		  HAL_UART_Transmit(&huart1, tx_buff, 6, 1000);
+		  osDelay(10000);
+	  }
   }
   /* USER CODE END StartStatusTask */
+}
+
+/* USER CODE BEGIN Header_StartUpdateTask */
+/**
+* @brief Function implementing the updateTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUpdateTask */
+void StartUpdateTask(void const * argument)
+{
+  /* USER CODE BEGIN StartUpdateTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartUpdateTask */
 }
 
 /**
