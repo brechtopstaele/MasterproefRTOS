@@ -52,8 +52,9 @@ MEMORY
   /*MY_MEMORY		(rx)	: ORIGIN = 0x08060000,	LENGTH = 128K */
   
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 96K
-  FLASH    (rx)    : ORIGIN = 0x08000000,   LENGTH = 384K
-  MY_MEMORY		(rx)	: ORIGIN = 0x08060000,	LENGTH = 128K
+  FLASH_BOOT    (rx)    : ORIGIN = 0x08000000,   LENGTH = 16K
+  MY_MEMORY		(rx)	: ORIGIN = 0x08004000,	LENGTH = 32K
+  FLASH    (rx)    : ORIGIN = 0x0800C000,   LENGTH = 464K
 }
 
 /* Sections */
@@ -65,7 +66,7 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH_BOOT
 
   /* The program code and other data into "FLASH" Rom type memory */
   .text :
@@ -85,13 +86,13 @@ SECTIONS
   } >FLASH
   
   /* User defined section */
-  /*.mysection :
+  .mysection :
   {
   	. = ALIGN(4);
     __mysection_start__ = .;
 	*overwrite.o (.text .text*)
     __mysection_end__ = .;
-  } > MY_MEMORY*/
+  } > MY_MEMORY
 
   /* Constant data into "FLASH" Rom type memory */
   .rodata :

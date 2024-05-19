@@ -27,6 +27,7 @@
 #include <stdarg.h>
 #include "eeprom.h"
 #include "retarget.h"
+#include "writeToFlash.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,10 +57,10 @@ osThreadId defaultTaskHandle;
 osThreadId receiveTaskHandle;
 osThreadId statusTaskHandle;
 osThreadId updateTaskHandle;
+/* USER CODE BEGIN PV */
 
 uint8_t version = 1;
 int statusDelay = 10000;
-/* USER CODE BEGIN PV */
 
 /* Virtual address defined by the user: 0xFFFF value is prohibited */
 /*uint16_t VirtAddVarTab[NB_OF_VAR];
@@ -170,7 +171,7 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  vTaskSuspend(receiveTaskHandle);
+  //vTaskSuspend(receiveTaskHandle);
   vTaskSuspend(updateTaskHandle);
   /* USER CODE END RTOS_THREADS */
 
@@ -420,10 +421,15 @@ static void MX_GPIO_Init(void)
 // Interrupt handler
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
+	uint32_t ulStatusRegister;
   // Execute when blue push button pressed
   if(GPIO_Pin == GPIO_PIN_13) {
 	  printf("F401: Button pressed, starting receive task \r\n");
-	  vTaskResume(receiveTaskHandle);
+
+	  //ulStatusRegister = ulReadPeripheralInterruptStatus();
+	  //vClearPeripheralInterruptStatus( ulStatusRegister );
+	  xTaskNotifyFromISR( receiveTaskHandle, 0x01, eSetBits, NULL );
+	  //vTaskResume(receiveTaskHandle);
   } else {
       __NOP();
   }
@@ -461,10 +467,14 @@ void StartDefaultTask(void const * argument)
 void StartReceiveTask(void const * argument)
 {
   /* USER CODE BEGIN StartReceiveTask */
+	uint32_t ulInterruptStatus;
 	uint16_t has_written = 0;
 	char input[100];
 	/* Infinite loop */
 	for (;;) {
+		xTaskNotifyWait( 0x00, 0xffffffff, NULL, pdMS_TO_TICKS(100000) );
+
+		vTaskSuspend(statusTaskHandle);
 
 		// Read the user input
 		printf("\r\n Code to update: \r\n");
@@ -503,7 +513,10 @@ void StartReceiveTask(void const * argument)
 		uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
 		printf("CRC Value: %u \r\n", crcValue);
 
-		vTaskSuspend(receiveTaskHandle);
+		//vTaskSuspend(receiveTaskHandle);
+
+		vTaskResume(statusTaskHandle);
+
 		osDelay(1);
 	}
   /* USER CODE END StartReceiveTask */
