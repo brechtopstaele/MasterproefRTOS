@@ -8,6 +8,6 @@
 ../Core/Src/main.c:489:6:HAL_GPIO_EXTI_Callback	24	static,ignoring_inline_asm
 ../Core/Src/main.c:514:6:StartDefaultTask	16	static
 ../Core/Src/main.c:534:6:StartReceiveTask	200	dynamic
-../Core/Src/main.c:660:6:StartStatusTask	32	static
-../Core/Src/main.c:688:6:StartUpdateTask	232	dynamic
-../Core/Src/main.c:796:6:Error_Handler	8	static,ignoring_inline_asm
+../Core/Src/main.c:675:6:StartStatusTask	32	static
+../Core/Src/main.c:703:6:StartUpdateTask	224	dynamic
+../Core/Src/main.c:810:6:Error_Handler	8	static,ignoring_inline_asm

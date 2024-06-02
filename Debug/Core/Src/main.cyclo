@@ -8,6 +8,6 @@
 ../Core/Src/main.c:489:6:HAL_GPIO_EXTI_Callback	2
 ../Core/Src/main.c:514:6:StartDefaultTask	1
 ../Core/Src/main.c:534:6:StartReceiveTask	10
-../Core/Src/main.c:660:6:StartStatusTask	2
-../Core/Src/main.c:688:6:StartUpdateTask	12
-../Core/Src/main.c:796:6:Error_Handler	1
+../Core/Src/main.c:675:6:StartStatusTask	2
+../Core/Src/main.c:703:6:StartUpdateTask	11
+../Core/Src/main.c:810:6:Error_Handler	1

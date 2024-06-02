@@ -564,19 +564,26 @@ void StartReceiveTask(void const * argument)
 
 				//CRC
 				uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
-				uint32_t mask = (1 << 16) - 1;
-				uint16_t lsbits = crcValue & mask;
-				mask = ((1 << 16) - 1) << 16;
-				uint16_t msbits = crcValue & mask;
-				printf("CRC Value: %lu \r\n", crcValue);
-				printf("CRC msbits: %u \r\n", msbits);
-				printf("CRC lsbits: %u \r\n", lsbits);
+				printf("crcValue: %u \r\n", crcValue);
+				uint8_t a,b,c,d;
+				a=(crcValue >> 24) & 0xFF;
+				b=(crcValue >> 16) & 0xFF;
+				c=(crcValue >> 8) & 0xFF;
+				d=(crcValue) & 0xFF;
 
-				input[len] = msbits;
-				input[len+1] = lsbits;
+				input[len] = a;
+				input[len+1] = b;
+				input[len+2] = c;
+				input[len+3] = d;
+
+				printf("a: %u \r\n", a);
+				printf("b: %u \r\n", b);
+				printf("c: %u \r\n", c);
+				printf("d: %u \r\n", d);
 
 				// Write to EEPROM
 				dataLengthNew = strlen(input);
+				printf("dataLengthNew: %u \r\n", dataLengthNew);
 				uint16_t VirtAddVarTab[dataLengthNew];
 
 				for(uint8_t i = 0; i<dataLengthNew; i++){
@@ -606,15 +613,6 @@ void StartReceiveTask(void const * argument)
 						Error_Handler();
 					}
 				}
-				printf("Completed saving of main data \r\n");
-				/*if ((EE_WriteVariable(VirtAddVarTab[0] + dataLengthNew - 1, msbits)) != HAL_OK) {
-					printf("Error pos 2 \r\n");
-					Error_Handler();
-				}
-				if ((EE_WriteVariable(VirtAddVarTab[0] + dataLengthNew, lsbits)) != HAL_OK) {
-					printf("Error pos 3 \r\n");
-					Error_Handler();
-				}*/
 				printf("Update data and CRC saved on EEPROM \r\n");
 
 				// Read values for debugging:
@@ -630,6 +628,14 @@ void StartReceiveTask(void const * argument)
 				HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
 				HAL_UART_Transmit(&huart2, VarDataTabRead, dataLengthNew, 1000);
 				HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
+
+
+				uint32_t storedCrc = (((uint32_t)VarDataTabRead[dataLengthNew-4]) << 24) | (((uint32_t)VarDataTabRead[dataLengthNew-3]) << 16) | (((uint32_t)VarDataTabRead[dataLengthNew-2]) << 8) | ((uint32_t)VarDataTabRead[dataLengthNew-1]);;
+				printf("crc value: %u \r\n", storedCrc);
+				printf("a: %u \r\n", VarDataTabRead[dataLengthNew-4]);
+				printf("b: %u \r\n", VarDataTabRead[dataLengthNew-3]);
+				printf("c: %u \r\n", VarDataTabRead[dataLengthNew-2]);
+				printf("d: %u \r\n", VarDataTabRead[dataLengthNew-1]);
 
 				//writeToFlash(huart2, input);
 
@@ -699,7 +705,7 @@ void StartUpdateTask(void const * argument)
 
 	  // Read from EEPROM
 	  osDelay(500);
-	  // Fill EEPROM variables addresses on the original data
+	  // Fill EEPROM variables addresses on the update data
 		uint16_t VirtAddNew[dataLengthNew];
 		for (uint16_t i = 1; i <= dataLengthNew; i++) {
 			VirtAddNew[i - 1] = 100 + i;
@@ -715,20 +721,19 @@ void StartUpdateTask(void const * argument)
 	  printf("Update data read from EEPROM: %s \r\n", data);
 
 	  // Fault introduction
-	  int faultMask = 11;
+	  /*int faultMask = 11;
 	  printf("%i \r\n", data[0]);
 	  data[0] ^= faultMask;
-	  printf("%i \r\n", data[0]);
+	  printf("%i \r\n", data[0]);*/
 
 	  //CRC
 	  uint32_t crcValue = HAL_CRC_Calculate(&hcrc, data, sizeof(data));
-	  unsigned mask = (1 << 16) - 1;
-		uint16_t lsbits = crcValue & mask;
-		mask = ((1 << 16) - 1) << 16;
-		uint16_t msbits = crcValue & mask;
-	  printf("CRC: %lu \r\n", crcValue);
+	  printf("CRC: %u \r\n", crcValue);
 
-	  if(msbits == data[dataLengthNew-1] && lsbits == data[dataLengthNew]){
+	  uint32_t origCRC = (((uint32_t)data[dataLengthNew-1]) << 16) | ((uint32_t)data[dataLengthNew]);
+	  printf("Orig CRC: %u \r\n", origCRC);
+
+	  if(crcValue == origCRC){
 		  printf("CRC matches memory value \r\n");
 	  } else {
 		  printf("CRC doesn't match memory, update should be cancelled \r\n");
