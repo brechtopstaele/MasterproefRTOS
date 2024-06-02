@@ -1,2 +1,2 @@
-../Core/Src/writeToFlash.c:18:6:writeToFlash	16	static
-../Core/Src/writeToFlash.c:60:6:readFlash	40	static
+../Core/Src/writeToFlash.c:60:6:writeToFlash	16	static
+../Core/Src/writeToFlash.c:100:6:readFlash	16	static

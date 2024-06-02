@@ -60,7 +60,9 @@ osThreadId updateTaskHandle;
 /* USER CODE BEGIN PV */
 
 uint8_t version = 1;
-int statusDelay = 10000;
+static int statusDelay = 10000;
+uint8_t dataLengthOrig = 0;
+uint8_t dataLengthNew = 0;
 
 /* Virtual address defined by the user: 0xFFFF value is prohibited */
 /*uint16_t VirtAddVarTab[NB_OF_VAR];
@@ -128,11 +130,76 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   RetargetInit(&huart2);
-  printf("F401: Starting up.....\n");
+  printf("F401: Starting up.....\r\n");
 
   // Write initial data to EEPROM
-  char data[100] = "This is the original data";
-  writeToFlash(huart2, data);
+  HAL_Delay(1000);
+  char data[50] = "This is the original data";
+  dataLengthOrig = strlen(data);
+
+  	/*HAL_FLASH_Unlock();
+
+	// EEPROM Init
+	if (EE_Init() != EE_OK) {
+		Error_Handler();
+	}*/
+
+	// Fill EEPROM variables addresses
+	uint16_t VirtAddVarTab[dataLengthOrig];
+	for (uint16_t i = 1; i <= dataLengthOrig; i++) {
+		VirtAddVarTab[i - 1] = i;
+	}
+
+	// Store Values in EEPROM emulation
+	/*for (uint16_t i = 0; i < dataLengthOrig; i++) {
+		// Sequence 1
+		if ((EE_WriteVariable(VirtAddVarTab[i], data[i]))
+				!= HAL_OK) {
+			Error_Handler();
+		}
+	}*/
+	uint8_t VarDataTabRead[NB_OF_VAR];
+
+	uint8_t dataLength = strlen(data);
+
+		// Unlock the Flash Program Erase controller
+		HAL_FLASH_Unlock();
+
+		/* EEPROM Init */
+		if (EE_Init() != EE_OK) {
+			Error_Handler();
+		}
+
+		// Fill EEPROM variables addresses
+		for (uint16_t i = 1; i <= dataLength; i++) {
+			VirtAddVarTab[i - 1] = i;
+		}
+
+		// Store Values in EEPROM emulation
+		HAL_UART_Transmit(&huart2, "Store values\n\r", 14, 100);
+		for (uint16_t i = 0; i < dataLength; i++) {
+			/* Sequence 1 */
+			if ((EE_WriteVariable(VirtAddVarTab[i], data[i]))
+					!= HAL_OK) {
+				Error_Handler();
+			}
+		}
+
+		// Read values
+		HAL_UART_Transmit(&huart2, "Read values\n\r", 13, 100);
+		for (uint16_t i = 0; i < dataLength; i++) {
+			if ((EE_ReadVariable(VirtAddVarTab[i],
+					&VarDataTabRead[i])) != HAL_OK) {
+				Error_Handler();
+			}
+		}
+
+		HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
+		HAL_UART_Transmit(&huart2, VarDataTabRead, dataLength, 1000);
+		HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
+
+	printf("Successfully saved original data to EEPROM \r\n");
+  //writeToFlash(huart2, data);
 
   /* USER CODE END 2 */
 
@@ -172,7 +239,7 @@ int main(void)
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   //vTaskSuspend(receiveTaskHandle);
-  vTaskSuspend(updateTaskHandle);
+  //vTaskSuspend(updateTaskHandle);
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -467,55 +534,116 @@ void StartDefaultTask(void const * argument)
 void StartReceiveTask(void const * argument)
 {
   /* USER CODE BEGIN StartReceiveTask */
-	uint32_t ulInterruptStatus;
-	uint16_t has_written = 0;
 	char input[100];
 	/* Infinite loop */
 	for (;;) {
-		xTaskNotifyWait( 0x00, 0xffffffff, NULL, pdMS_TO_TICKS(100000) );
+		// Wait until button is pressed
+		xTaskNotifyWait( 0x00, 0xffffffff, NULL, pdMS_TO_TICKS(100000));
 
-		vTaskSuspend(statusTaskHandle);
+		// For debugging purposes disable watchdog
+		//vTaskSuspend(statusTaskHandle);
 
 		// Read the user input
-		printf("\r\n Code to update: \r\n");
+		printf("\r\n Provide update code: \r\n");
 		//if(scanf("%s", input) != -1){
 		//TODO: fgets doesn't read newline?
 		if (fgets(input, 10, stdin)) {
 			size_t len = strlen(input);
-			printf("Length: %d", len);
-			if (feof(stdin) || (len != 0 /*&& input[len - 1] == '\n'*/))
-				printf("\r\n Code received:  %s \r\n", input);
+			printf("Length: %d \r\n", len);
+			//if (feof(stdin) || (len != 0 && input[len - 1] == '\n')) {
+				printf("Code received:  %s \r\n", input);
+				printf("%s \r\n", input);
 
-				//Write to flash
-				//uint16_t data[100];
+				// Output for debugging
 				for(uint8_t i = 0; i<len; i++){
 					printf("%d", input[i]);
-					//sscanf(input[i], "%d", data[i]);
 				}
 				printf("\r\n");
 
 				//readFlash(huart2, 26);
 
-				char data[100] = "Hello, this is updated code";
+				//CRC
+				uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
+				uint32_t mask = (1 << 16) - 1;
+				uint16_t lsbits = crcValue & mask;
+				mask = ((1 << 16) - 1) << 16;
+				uint16_t msbits = crcValue & mask;
+				printf("CRC Value: %lu \r\n", crcValue);
+				printf("CRC msbits: %u \r\n", msbits);
+				printf("CRC lsbits: %u \r\n", lsbits);
 
-				if(has_written == 0){
-					writeToFlash(huart2, data);
-					has_written = 1;
+				input[len] = msbits;
+				input[len+1] = lsbits;
+
+				// Write to EEPROM
+				dataLengthNew = strlen(input);
+				uint16_t VirtAddVarTab[dataLengthNew];
+
+				for(uint8_t i = 0; i<dataLengthNew; i++){
+					printf("%d", input[i]);
+				}
+				printf("\r\n");
+
+				// Unlock the Flash Program Erase controller
+				HAL_FLASH_Unlock();
+
+				// EEPROM Init
+				if (EE_Init() != EE_OK) {
+					Error_Handler();
 				}
 
-			else
-				printf("Invalid input, please respect the limit of 100 characters.");
+				// Fill EEPROM variables addresses with offset from original data
+				for (uint16_t i = 1; i <= dataLengthNew; i++) {
+					VirtAddVarTab[i - 1] = 100 + i;
+				}
+
+				// Store values in EEPROM emulation
+				printf("Start saving \r\n");
+				for (uint16_t i = 0; i < dataLengthNew; i++) {
+					// Sequence 1
+					if ((EE_WriteVariable(VirtAddVarTab[i], input[i])) != HAL_OK) {
+						printf("Error pos 1 \r\n");
+						Error_Handler();
+					}
+				}
+				printf("Completed saving of main data \r\n");
+				/*if ((EE_WriteVariable(VirtAddVarTab[0] + dataLengthNew - 1, msbits)) != HAL_OK) {
+					printf("Error pos 2 \r\n");
+					Error_Handler();
+				}
+				if ((EE_WriteVariable(VirtAddVarTab[0] + dataLengthNew, lsbits)) != HAL_OK) {
+					printf("Error pos 3 \r\n");
+					Error_Handler();
+				}*/
+				printf("Update data and CRC saved on EEPROM \r\n");
+
+				// Read values for debugging:
+				uint8_t VarDataTabRead[dataLengthNew];
+				printf("Reading values \r\n");
+				for (uint16_t i = 0; i < dataLengthNew; i++) {
+					if ((EE_ReadVariable(VirtAddVarTab[i], &VarDataTabRead[i])) != HAL_OK) {
+						printf("Error pos 4 \r\n");
+						Error_Handler();
+					}
+				}
+				//printf("Successfully read data %s \r\n", VarDataTabRead);
+				HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
+				HAL_UART_Transmit(&huart2, VarDataTabRead, dataLengthNew, 1000);
+				HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
+
+				//writeToFlash(huart2, input);
+
+				//vTaskSuspend(receiveTaskHandle);
+				xTaskNotifyGive(updateTaskHandle);
+
+			//} else {
+			//	printf("Invalid input \r\n");
+			//}
 		} else {
-			printf("Invalid input, please respect the limit of 100 characters.");
+			printf("Invalid input \r\n");
 		}
 
-		//CRC
-		uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
-		printf("CRC Value: %u \r\n", crcValue);
-
-		//vTaskSuspend(receiveTaskHandle);
-
-		vTaskResume(statusTaskHandle);
+		printf("ReceiveTask finished \r\n");
 
 		osDelay(1);
 	}
@@ -563,30 +691,102 @@ void StartUpdateTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  //printf("Task Handle: %s", xTaskGetCurrentTaskHandle());
+	  ulTaskNotifyTake( 0x00, pdMS_TO_TICKS(100000) );
+	  osDelay(500);
+
+	  printf("updateTask started \r\n");
+
+	  // Read from EEPROM
+	  osDelay(500);
+	  // Fill EEPROM variables addresses on the original data
+		uint16_t VirtAddNew[dataLengthNew];
+		for (uint16_t i = 1; i <= dataLengthNew; i++) {
+			VirtAddNew[i - 1] = 100 + i;
+		}
+	  char data[100] = "Hello, this is updated code";
+	  for (uint16_t i = 0; i < dataLengthNew; i++) {
+	  		if ((EE_ReadVariable(VirtAddNew[i], &data[i])) != HAL_OK) {
+	  			printf("Error reading update data \r\n");
+	  			Error_Handler();
+	  		}
+	  }
+
+	  printf("Update data read from EEPROM: %s \r\n", data);
+
+	  // Fault introduction
+	  int faultMask = 11;
+	  printf("%i \r\n", data[0]);
+	  data[0] ^= faultMask;
+	  printf("%i \r\n", data[0]);
+
+	  //CRC
+	  uint32_t crcValue = HAL_CRC_Calculate(&hcrc, data, sizeof(data));
+	  unsigned mask = (1 << 16) - 1;
+		uint16_t lsbits = crcValue & mask;
+		mask = ((1 << 16) - 1) << 16;
+		uint16_t msbits = crcValue & mask;
+	  printf("CRC: %lu \r\n", crcValue);
+
+	  if(msbits == data[dataLengthNew-1] && lsbits == data[dataLengthNew]){
+		  printf("CRC matches memory value \r\n");
+	  } else {
+		  printf("CRC doesn't match memory, update should be cancelled \r\n");
+	  }
+
+	  osDelay(500);
+
+	  // Write to EEPROM
+	  // Unlock the Flash Program Erase controller
+		HAL_FLASH_Unlock();
+
+		/* EEPROM Init */
+		if (EE_Init() != EE_OK) {
+			Error_Handler();
+		}
+
+		uint16_t VirtAddOrig[dataLengthOrig];
+			for (uint16_t i = 1; i <= dataLengthOrig; i++) {
+				VirtAddOrig[i - 1] = i;
+			}
+
+		// Store values in EEPROM emulation
+		for (uint16_t i = 0; i < dataLengthOrig - 2; i++) {
+			/* Sequence 1 */
+			if ((EE_WriteVariable(VirtAddOrig[i], data[i])) != HAL_OK) {
+				Error_Handler();
+			}
+		}
+		printf("Update data updated on EEPROM \r\n");
+
+		// Read values for debugging:
+		uint8_t VarDataTabRead[dataLengthOrig+2];
+		printf("Reading values \r\n");
+		for (uint16_t i = 0; i < dataLengthOrig; i++) {
+			if ((EE_ReadVariable(VirtAddOrig[i], &VarDataTabRead[i])) != HAL_OK) {
+				Error_Handler();
+			}
+		}
+
+		/*HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
+		HAL_UART_Transmit(&huart2, VarDataTabRead, dataLengthOrig, 1000);
+		HAL_UART_Transmit(&huart2, "\n\r", 2, 100);*/
+		printf("succesfully read data %s \r\n", VarDataTabRead);
+
+	  osDelay(200);
+
+	  version++;
+	  printf("Code update successful \r\n");
+
+
+	  // Resume watchdog:
+	  //vTaskResume(statusTaskHandle);
+
+	  printf("UpdateTask completed successfully \r\n");
+
+	  osDelay(1);
   }
   /* USER CODE END StartUpdateTask */
-}
-
-/**
-  * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM5 interrupt took place, inside
-  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
-  * a global variable "uwTick" used as application time base.
-  * @param  htim : TIM handle
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  /* USER CODE BEGIN Callback 0 */
-
-  /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM5) {
-    HAL_IncTick();
-  }
-  /* USER CODE BEGIN Callback 1 */
-
-  /* USER CODE END Callback 1 */
 }
 
 /**
@@ -598,6 +798,8 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  osDelay(1000);
+  printf("HAL ERROR \r\n");
   while (1)
   {
   }

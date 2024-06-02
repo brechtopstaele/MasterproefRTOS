@@ -200,7 +200,7 @@ SECTIONS
   }
   
   /* Check if MY_MEMORY usage exceeds MY_MEMORY size */
-  /*ASSERT( LENGTH(MY_MEMORY) >= (__mysection_end__ - __mysection_start__), "MY_MEMORY memory overflowed !")*/
+  ASSERT( LENGTH(MY_MEMORY) >= (__mysection_end__ - __mysection_start__), "MY_MEMORY memory overflowed !")
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }

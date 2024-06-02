@@ -1,2 +1,2 @@
-../Core/Src/writeToFlash.c:18:6:writeToFlash	7
-../Core/Src/writeToFlash.c:60:6:readFlash	3
+../Core/Src/writeToFlash.c:60:6:writeToFlash	7
+../Core/Src/writeToFlash.c:100:6:readFlash	3
