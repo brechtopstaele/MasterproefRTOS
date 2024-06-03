@@ -130,37 +130,18 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   RetargetInit(&huart2);
-  printf("F401: Starting up.....\r\n");
+  printf("--------F401: Starting up.....\r\n");
 
   // Write initial data to EEPROM
-  HAL_Delay(1000);
   char data[50] = "This is the original data";
   dataLengthOrig = strlen(data);
 
-  	/*HAL_FLASH_Unlock();
-
-	// EEPROM Init
-	if (EE_Init() != EE_OK) {
-		Error_Handler();
-	}*/
-
 	// Fill EEPROM variables addresses
 	uint16_t VirtAddVarTab[dataLengthOrig];
-	for (uint16_t i = 1; i <= dataLengthOrig; i++) {
-		VirtAddVarTab[i - 1] = i;
-	}
-
-	// Store Values in EEPROM emulation
-	/*for (uint16_t i = 0; i < dataLengthOrig; i++) {
-		// Sequence 1
-		if ((EE_WriteVariable(VirtAddVarTab[i], data[i]))
-				!= HAL_OK) {
-			Error_Handler();
-		}
-	}*/
-	uint8_t VarDataTabRead[NB_OF_VAR];
-
+	uint8_t VarDataTabRead[50];
 	uint8_t dataLength = strlen(data);
+
+	HAL_Delay(2000);
 
 		// Unlock the Flash Program Erase controller
 		HAL_FLASH_Unlock();
@@ -176,7 +157,6 @@ int main(void)
 		}
 
 		// Store Values in EEPROM emulation
-		HAL_UART_Transmit(&huart2, "Store values\n\r", 14, 100);
 		for (uint16_t i = 0; i < dataLength; i++) {
 			/* Sequence 1 */
 			if ((EE_WriteVariable(VirtAddVarTab[i], data[i]))
@@ -186,7 +166,6 @@ int main(void)
 		}
 
 		// Read values
-		HAL_UART_Transmit(&huart2, "Read values\n\r", 13, 100);
 		for (uint16_t i = 0; i < dataLength; i++) {
 			if ((EE_ReadVariable(VirtAddVarTab[i],
 					&VarDataTabRead[i])) != HAL_OK) {
@@ -194,11 +173,7 @@ int main(void)
 			}
 		}
 
-		HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
-		HAL_UART_Transmit(&huart2, VarDataTabRead, dataLength, 1000);
-		HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-
-	printf("Successfully saved original data to EEPROM \r\n");
+	printf("	Startup: Successfully saved original data to EEPROM \r\n");
   //writeToFlash(huart2, data);
 
   /* USER CODE END 2 */
@@ -325,7 +300,6 @@ static void MX_CRC_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CRC_Init 2 */
-
   /* USER CODE END CRC_Init 2 */
 
 }
@@ -491,7 +465,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	uint32_t ulStatusRegister;
   // Execute when blue push button pressed
   if(GPIO_Pin == GPIO_PIN_13) {
-	  printf("F401: Button pressed, starting receive task \r\n");
+	  printf("-- Button pressed, starting receive task \r\n");
 
 	  //ulStatusRegister = ulReadPeripheralInterruptStatus();
 	  //vClearPeripheralInterruptStatus( ulStatusRegister );
@@ -544,113 +518,78 @@ void StartReceiveTask(void const * argument)
 		//vTaskSuspend(statusTaskHandle);
 
 		// Read the user input
-		printf("\r\n Provide update code: \r\n");
-		//if(scanf("%s", input) != -1){
-		//TODO: fgets doesn't read newline?
+		printf("\r\n 	Provide update code: \r\n");
 		if (fgets(input, 10, stdin)) {
-			size_t len = strlen(input);
-			printf("Length: %d \r\n", len);
-			//if (feof(stdin) || (len != 0 && input[len - 1] == '\n')) {
-				printf("Code received:  %s \r\n", input);
-				printf("%s \r\n", input);
+			printf("	Code received:  %s \r\n", input);
+			uint16_t len = strlen(input);
 
-				// Output for debugging
-				for(uint8_t i = 0; i<len; i++){
-					printf("%d", input[i]);
-				}
-				printf("\r\n");
+			//---- CRC ----
+			uint32_t data32bit[len];
+			for(uint16_t i = 0; i < len; i++){
+				data32bit[i] = (uint32_t) input[i];
+			}
 
-				//readFlash(huart2, 26);
+			uint32_t crcValue = HAL_CRC_Calculate(&hcrc, data32bit, len);
+			printf("		crcValue: %lu \r\n", crcValue);
 
-				//CRC
-				uint32_t crcValue = HAL_CRC_Calculate(&hcrc, input, sizeof(input));
-				printf("crcValue: %u \r\n", crcValue);
-				uint8_t a,b,c,d;
-				a=(crcValue >> 24) & 0xFF;
-				b=(crcValue >> 16) & 0xFF;
-				c=(crcValue >> 8) & 0xFF;
-				d=(crcValue) & 0xFF;
+			// Split CRC for storage in EEPROM
+			uint8_t a,b,c,d;
+			a=(crcValue >> 24) & 0xFF;
+			b=(crcValue >> 16) & 0xFF;
+			c=(crcValue >> 8) & 0xFF;
+			d=(crcValue) & 0xFF;
 
-				input[len] = a;
-				input[len+1] = b;
-				input[len+2] = c;
-				input[len+3] = d;
+			input[len] = a;
+			input[len+1] = b;
+			input[len+2] = c;
+			input[len+3] = d;
 
-				printf("a: %u \r\n", a);
-				printf("b: %u \r\n", b);
-				printf("c: %u \r\n", c);
-				printf("d: %u \r\n", d);
+			//---- Write to EEPROM ----
+			dataLengthNew = strlen(input);
+			uint16_t VirtAddVarTab[dataLengthNew];
 
-				// Write to EEPROM
-				dataLengthNew = strlen(input);
-				printf("dataLengthNew: %u \r\n", dataLengthNew);
-				uint16_t VirtAddVarTab[dataLengthNew];
+			// Unlock the Flash Program Erase controller
+			HAL_FLASH_Unlock();
 
-				for(uint8_t i = 0; i<dataLengthNew; i++){
-					printf("%d", input[i]);
-				}
-				printf("\r\n");
+			// EEPROM Init
+			if (EE_Init() != EE_OK) {
+				Error_Handler();
+			}
 
-				// Unlock the Flash Program Erase controller
-				HAL_FLASH_Unlock();
+			// Fill EEPROM variables addresses with offset from original data
+			for (uint16_t i = 1; i <= dataLengthNew; i++) {
+				VirtAddVarTab[i - 1] = 100 + i;
+			}
 
-				// EEPROM Init
-				if (EE_Init() != EE_OK) {
+			// Store values in EEPROM emulation
+			for (uint16_t i = 0; i < dataLengthNew; i++) {
+				// Sequence 1
+				if ((EE_WriteVariable(VirtAddVarTab[i], input[i])) != HAL_OK) {
+					printf("! Error in saving update data to EEPROM \r\n");
 					Error_Handler();
 				}
+			}
+			//printf("	Update data and CRC saved on EEPROM \r\n");
 
-				// Fill EEPROM variables addresses with offset from original data
-				for (uint16_t i = 1; i <= dataLengthNew; i++) {
-					VirtAddVarTab[i - 1] = 100 + i;
+			// Read values for debugging:
+			uint8_t VarDataTabRead[dataLengthNew+10];
+			for (uint16_t i = 0; i < dataLengthNew; i++) {
+				if ((EE_ReadVariable(VirtAddVarTab[i], &VarDataTabRead[i])) != HAL_OK) {
+					printf("! Error in reading update data from EEPROM \r\n");
+					Error_Handler();
 				}
+			}
+			printf("	Successfully read update data: %s \r\n", VarDataTabRead);
+			uint32_t storedCrc = (((uint32_t)VarDataTabRead[dataLengthNew-4]) << 24) | (((uint32_t)VarDataTabRead[dataLengthNew-3]) << 16) | (((uint32_t)VarDataTabRead[dataLengthNew-2]) << 8) | ((uint32_t)VarDataTabRead[dataLengthNew-1]);
+			printf("	crc value: %lu \r\n", storedCrc);
 
-				// Store values in EEPROM emulation
-				printf("Start saving \r\n");
-				for (uint16_t i = 0; i < dataLengthNew; i++) {
-					// Sequence 1
-					if ((EE_WriteVariable(VirtAddVarTab[i], input[i])) != HAL_OK) {
-						printf("Error pos 1 \r\n");
-						Error_Handler();
-					}
-				}
-				printf("Update data and CRC saved on EEPROM \r\n");
+			//vTaskSuspend(receiveTaskHandle);
+			xTaskNotifyGive(updateTaskHandle);
 
-				// Read values for debugging:
-				uint8_t VarDataTabRead[dataLengthNew];
-				printf("Reading values \r\n");
-				for (uint16_t i = 0; i < dataLengthNew; i++) {
-					if ((EE_ReadVariable(VirtAddVarTab[i], &VarDataTabRead[i])) != HAL_OK) {
-						printf("Error pos 4 \r\n");
-						Error_Handler();
-					}
-				}
-				//printf("Successfully read data %s \r\n", VarDataTabRead);
-				HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
-				HAL_UART_Transmit(&huart2, VarDataTabRead, dataLengthNew, 1000);
-				HAL_UART_Transmit(&huart2, "\n\r", 2, 100);
-
-
-				uint32_t storedCrc = (((uint32_t)VarDataTabRead[dataLengthNew-4]) << 24) | (((uint32_t)VarDataTabRead[dataLengthNew-3]) << 16) | (((uint32_t)VarDataTabRead[dataLengthNew-2]) << 8) | ((uint32_t)VarDataTabRead[dataLengthNew-1]);;
-				printf("crc value: %u \r\n", storedCrc);
-				printf("a: %u \r\n", VarDataTabRead[dataLengthNew-4]);
-				printf("b: %u \r\n", VarDataTabRead[dataLengthNew-3]);
-				printf("c: %u \r\n", VarDataTabRead[dataLengthNew-2]);
-				printf("d: %u \r\n", VarDataTabRead[dataLengthNew-1]);
-
-				//writeToFlash(huart2, input);
-
-				//vTaskSuspend(receiveTaskHandle);
-				xTaskNotifyGive(updateTaskHandle);
-
-			//} else {
-			//	printf("Invalid input \r\n");
-			//}
 		} else {
-			printf("Invalid input \r\n");
+			printf("! Invalid input \r\n");
 		}
-
-		printf("ReceiveTask finished \r\n");
-
+		//printf("-- receiveTask finished \r\n");
 		osDelay(1);
 	}
   /* USER CODE END StartReceiveTask */
@@ -674,7 +613,7 @@ void StartStatusTask(void const * argument)
 	  if(currentTime < prevTime + statusDelay) {
 		  osDelay(currentTime + statusDelay - currentTime);
 	  } else {
-		  printf("F401: Starting status transmission \r\n");
+		  printf("	F401: Starting status transmission \r\n");
 		  uint8_t checkSum = 2+version;
 		  uint8_t tx_buff[]={1,0,1,0,version,checkSum};
 		  HAL_UART_Transmit(&huart1, tx_buff, 6, 1000);
@@ -701,24 +640,31 @@ void StartUpdateTask(void const * argument)
 	  ulTaskNotifyTake( 0x00, pdMS_TO_TICKS(100000) );
 	  osDelay(500);
 
-	  printf("updateTask started \r\n");
+	  printf("-- updateTask started \r\n");
+
+	  HAL_FLASH_Unlock();
+
+		/* EEPROM Init */
+		if (EE_Init() != EE_OK) {
+			Error_Handler();
+		}
 
 	  // Read from EEPROM
-	  osDelay(500);
 	  // Fill EEPROM variables addresses on the update data
 		uint16_t VirtAddNew[dataLengthNew];
 		for (uint16_t i = 1; i <= dataLengthNew; i++) {
 			VirtAddNew[i - 1] = 100 + i;
 		}
-	  char data[100] = "Hello, this is updated code";
+	  //char data[100] = "Hello, this is updated code";
+	  uint8_t data[50];
 	  for (uint16_t i = 0; i < dataLengthNew; i++) {
 	  		if ((EE_ReadVariable(VirtAddNew[i], &data[i])) != HAL_OK) {
-	  			printf("Error reading update data \r\n");
+	  			printf("! Error reading update data \r\n");
 	  			Error_Handler();
 	  		}
 	  }
 
-	  printf("Update data read from EEPROM: %s \r\n", data);
+	  printf("	Update data read from EEPROM: %s \r\n", data);
 
 	  // Fault introduction
 	  /*int faultMask = 11;
@@ -727,58 +673,66 @@ void StartUpdateTask(void const * argument)
 	  printf("%i \r\n", data[0]);*/
 
 	  //CRC
-	  uint32_t crcValue = HAL_CRC_Calculate(&hcrc, data, sizeof(data));
-	  printf("CRC: %u \r\n", crcValue);
 
-	  uint32_t origCRC = (((uint32_t)data[dataLengthNew-1]) << 16) | ((uint32_t)data[dataLengthNew]);
-	  printf("Orig CRC: %u \r\n", origCRC);
+	  uint32_t origCRC = (((uint32_t)data[dataLengthNew-4]) << 24) | (((uint32_t)data[dataLengthNew-3]) << 16) | (((uint32_t)data[dataLengthNew-2]) << 8) | ((uint32_t)data[dataLengthNew-1]);
+	  printf("		Orig CRC: %lu \r\n", origCRC);
 
-	  if(crcValue == origCRC){
-		  printf("CRC matches memory value \r\n");
-	  } else {
-		  printf("CRC doesn't match memory, update should be cancelled \r\n");
+	  uint32_t data32bit[dataLengthNew-4];
+	  for(uint16_t i = 0; i < dataLengthNew - 4; i++){
+		  data32bit[i] = (uint32_t) data[i];
 	  }
 
-	  osDelay(500);
+	  uint32_t crcValue = HAL_CRC_Calculate(&hcrc, data32bit, dataLengthNew-4);
+	  printf("		CRC: %lu \r\n", crcValue);
+
+
+	  if(crcValue == origCRC){
+		  printf("		CRC matches memory value \r\n");
+	  } else {
+		  printf("! CRC doesn't match memory, update should be cancelled \r\n");
+	  }
 
 	  // Write to EEPROM
 	  // Unlock the Flash Program Erase controller
-		HAL_FLASH_Unlock();
-
-		/* EEPROM Init */
-		if (EE_Init() != EE_OK) {
-			Error_Handler();
-		}
-
 		uint16_t VirtAddOrig[dataLengthOrig];
 			for (uint16_t i = 1; i <= dataLengthOrig; i++) {
 				VirtAddOrig[i - 1] = i;
 			}
 
-		// Store values in EEPROM emulation
-		for (uint16_t i = 0; i < dataLengthOrig - 2; i++) {
+		// Read values for debugging:
+		uint8_t VarDataTabReadA[dataLengthOrig];
+		for (uint16_t i = 0; i < dataLengthOrig; i++) {
+			if ((EE_ReadVariable(VirtAddOrig[i], &VarDataTabReadA[i])) != HAL_OK) {
+				printf("! Error in reading update data after update \r\n");
+				Error_Handler();
+			}
+		}
+		printf("	Successfully read data prior to update: %s \r\n", VarDataTabReadA);
+
+		//---- UPDATE ----
+		printf("	Start writing update data \r\n");
+		// Store values in EEPROM emulation except CRC
+		for (uint16_t i = 0; i < dataLengthNew - 4; i++) {
 			/* Sequence 1 */
 			if ((EE_WriteVariable(VirtAddOrig[i], data[i])) != HAL_OK) {
+				printf("! Error in writing update data \r\n");
 				Error_Handler();
 			}
 		}
-		printf("Update data updated on EEPROM \r\n");
+		printf("	Update data written on EEPROM \r\n");
 
 		// Read values for debugging:
-		uint8_t VarDataTabRead[dataLengthOrig+2];
-		printf("Reading values \r\n");
+		uint8_t VarDataTabRead[dataLengthOrig];
 		for (uint16_t i = 0; i < dataLengthOrig; i++) {
 			if ((EE_ReadVariable(VirtAddOrig[i], &VarDataTabRead[i])) != HAL_OK) {
+				printf("! Error in reading update data after update \r\n");
 				Error_Handler();
 			}
 		}
 
-		/*HAL_UART_Transmit(&huart2, "Read table: ", 12, 100);
-		HAL_UART_Transmit(&huart2, VarDataTabRead, dataLengthOrig, 1000);
-		HAL_UART_Transmit(&huart2, "\n\r", 2, 100);*/
-		printf("succesfully read data %s \r\n", VarDataTabRead);
-
-	  osDelay(200);
+		printf("\r\n");
+		printf("	Successfully read data after update: %s \r\n", VarDataTabRead);
+		printf("\r\n");
 
 	  version++;
 	  printf("Code update successful \r\n");
@@ -786,8 +740,6 @@ void StartUpdateTask(void const * argument)
 
 	  // Resume watchdog:
 	  //vTaskResume(statusTaskHandle);
-
-	  printf("UpdateTask completed successfully \r\n");
 
 	  osDelay(1);
   }
