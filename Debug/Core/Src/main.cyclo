@@ -9,5 +9,5 @@
 ../Core/Src/main.c:488:6:StartDefaultTask	1
 ../Core/Src/main.c:508:6:StartReceiveTask	9
 ../Core/Src/main.c:605:6:StartStatusTask	2
-../Core/Src/main.c:633:6:StartUpdateTask	14
-../Core/Src/main.c:753:6:Error_Handler	1
+../Core/Src/main.c:633:6:StartUpdateTask	16
+../Core/Src/main.c:763:6:Error_Handler	1

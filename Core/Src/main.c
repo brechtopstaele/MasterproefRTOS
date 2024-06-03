@@ -655,8 +655,8 @@ void StartUpdateTask(void const * argument)
 		for (uint16_t i = 1; i <= dataLengthNew; i++) {
 			VirtAddNew[i - 1] = 100 + i;
 		}
-	  //char data[100] = "Hello, this is updated code";
-	  uint8_t data[50];
+	  char data[50] = "Hallokes";
+	  //uint8_t data[50];
 	  for (uint16_t i = 0; i < dataLengthNew; i++) {
 	  		if ((EE_ReadVariable(VirtAddNew[i], &data[i])) != HAL_OK) {
 	  			printf("! Error reading update data \r\n");
@@ -709,10 +709,15 @@ void StartUpdateTask(void const * argument)
 		}
 		printf("	Successfully read data prior to update: %s \r\n", VarDataTabReadA);
 
+		for(uint16_t i = 0; i < dataLengthOrig; i++){
+			printf("%u", VarDataTabReadA[i]);
+		}
+		printf("\r\n");
+
 		//---- UPDATE ----
 		printf("	Start writing update data \r\n");
 		// Store values in EEPROM emulation except CRC
-		for (uint16_t i = 0; i < dataLengthNew - 4; i++) {
+		for (uint16_t i = 0; i < dataLengthNew - 5; i++) {
 			/* Sequence 1 */
 			if ((EE_WriteVariable(VirtAddOrig[i], data[i])) != HAL_OK) {
 				printf("! Error in writing update data \r\n");
@@ -731,7 +736,12 @@ void StartUpdateTask(void const * argument)
 		}
 
 		printf("\r\n");
-		printf("	Successfully read data after update: %s \r\n", VarDataTabRead);
+		printf("Successfully read data after update: %s \r\n", VarDataTabRead);
+		printf("\r\n");
+
+		for(uint16_t i = 0; i < dataLengthOrig+10; i++){
+			printf("%u", VarDataTabRead[i]);
+		}
 		printf("\r\n");
 
 	  version++;
