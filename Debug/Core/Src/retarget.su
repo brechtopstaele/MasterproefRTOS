@@ -5,3 +5,15 @@
 ../Core/Src/retarget.c:61:5:_lseek	24	static
 ../Core/Src/retarget.c:70:5:_read	32	static
 ../Core/Src/retarget.c:84:5:_fstat	16	static
+../Core/Src/retarget.c:106:6:initialise_monitor_handles	4	static
+../Core/Src/retarget.c:110:5:_getpid	4	static
+../Core/Src/retarget.c:115:5:_kill	16	static
+../Core/Src/retarget.c:123:6:_exit	16	static
+../Core/Src/retarget.c:129:5:_open	12	static
+../Core/Src/retarget.c:137:5:_wait	16	static
+../Core/Src/retarget.c:144:5:_unlink	16	static
+../Core/Src/retarget.c:151:5:_times	16	static
+../Core/Src/retarget.c:157:5:_stat	16	static
+../Core/Src/retarget.c:164:5:_link	16	static
+../Core/Src/retarget.c:172:5:_fork	8	static
+../Core/Src/retarget.c:178:5:_execve	24	static

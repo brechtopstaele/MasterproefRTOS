@@ -103,6 +103,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	//NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
 
   /* USER CODE END 1 */
 
@@ -200,7 +201,7 @@ int main(void)
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of receiveTask */
-  osThreadDef(receiveTask, StartReceiveTask, osPriorityNormal, 0, 128);
+  osThreadDef(receiveTask, StartReceiveTask, osPriorityNormal, 0, 256);
   receiveTaskHandle = osThreadCreate(osThread(receiveTask), NULL);
 
   /* definition and creation of statusTask */
@@ -208,7 +209,7 @@ int main(void)
   statusTaskHandle = osThreadCreate(osThread(statusTask), NULL);
 
   /* definition and creation of updateTask */
-  osThreadDef(updateTask, StartUpdateTask, osPriorityNormal, 0, 128);
+  osThreadDef(updateTask, StartUpdateTask, osPriorityNormal, 0, 256);
   updateTaskHandle = osThreadCreate(osThread(updateTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -450,7 +451,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -466,11 +467,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   // Execute when blue push button pressed
   if(GPIO_Pin == GPIO_PIN_13) {
 	  printf("-- Button pressed, starting receive task \r\n");
-
-	  //ulStatusRegister = ulReadPeripheralInterruptStatus();
-	  //vClearPeripheralInterruptStatus( ulStatusRegister );
-	  xTaskNotifyFromISR( receiveTaskHandle, 0x01, eSetBits, NULL );
-	  //vTaskResume(receiveTaskHandle);
+	  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	  xTaskNotifyFromISR( receiveTaskHandle, 0x01, eSetBits, &xHigherPriorityTaskWoken );
+	  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
   } else {
       __NOP();
   }
@@ -512,10 +511,7 @@ void StartReceiveTask(void const * argument)
 	/* Infinite loop */
 	for (;;) {
 		// Wait until button is pressed
-		xTaskNotifyWait( 0x00, 0xffffffff, NULL, pdMS_TO_TICKS(100000));
-
-		// For debugging purposes disable watchdog
-		//vTaskSuspend(statusTaskHandle);
+		xTaskNotifyWait( 0x00, 0xffffffff, NULL, portMAX_DELAY);
 
 		// Read the user input
 		printf("\r\n 	Provide update code: \r\n");
@@ -583,14 +579,13 @@ void StartReceiveTask(void const * argument)
 			uint32_t storedCrc = (((uint32_t)VarDataTabRead[dataLengthNew-4]) << 24) | (((uint32_t)VarDataTabRead[dataLengthNew-3]) << 16) | (((uint32_t)VarDataTabRead[dataLengthNew-2]) << 8) | ((uint32_t)VarDataTabRead[dataLengthNew-1]);
 			printf("	crc value: %lu \r\n", storedCrc);
 
-			//vTaskSuspend(receiveTaskHandle);
+			// Resume updateTask
 			xTaskNotifyGive(updateTaskHandle);
 
 		} else {
 			printf("! Invalid input \r\n");
 		}
 		//printf("-- receiveTask finished \r\n");
-		osDelay(1);
 	}
   /* USER CODE END StartReceiveTask */
 }
@@ -636,8 +631,8 @@ void StartUpdateTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  //printf("Task Handle: %s", xTaskGetCurrentTaskHandle());
-	  ulTaskNotifyTake( 0x00, pdMS_TO_TICKS(100000) );
+	  // Wait for notification from receiveTask
+	  ulTaskNotifyTake( 0x00, portMAX_DELAY );
 	  osDelay(500);
 
 	  printf("-- updateTask started \r\n");
@@ -655,7 +650,7 @@ void StartUpdateTask(void const * argument)
 		for (uint16_t i = 1; i <= dataLengthNew; i++) {
 			VirtAddNew[i - 1] = 100 + i;
 		}
-	  char data[50] = "Hallokes";
+	  char data[50] = "Fault";
 	  //uint8_t data[50];
 	  for (uint16_t i = 0; i < dataLengthNew; i++) {
 	  		if ((EE_ReadVariable(VirtAddNew[i], &data[i])) != HAL_OK) {
@@ -667,10 +662,10 @@ void StartUpdateTask(void const * argument)
 	  printf("	Update data read from EEPROM: %s \r\n", data);
 
 	  // Fault introduction
-	  /*int faultMask = 11;
-	  printf("%i \r\n", data[0]);
+	  /*int faultMask = 1;
+	  printf("Before fault: %i \r\n", data[0]);
 	  data[0] ^= faultMask;
-	  printf("%i \r\n", data[0]);*/
+	  printf("After fault: %i \r\n", data[0]);*/
 
 	  //CRC
 
@@ -709,16 +704,12 @@ void StartUpdateTask(void const * argument)
 		}
 		printf("	Successfully read data prior to update: %s \r\n", VarDataTabReadA);
 
-		for(uint16_t i = 0; i < dataLengthOrig; i++){
-			printf("%u", VarDataTabReadA[i]);
-		}
-		printf("\r\n");
 
 		//---- UPDATE ----
 		printf("	Start writing update data \r\n");
-		// Store values in EEPROM emulation except CRC
-		for (uint16_t i = 0; i < dataLengthNew - 5; i++) {
-			/* Sequence 1 */
+		printf("Data to write: %s \r\n", data);
+		// Store values in EEPROM emulation except CRC (-5) and newline (-1)
+		for (uint16_t i = 0; i < dataLengthNew - 6; i++) {
 			if ((EE_WriteVariable(VirtAddOrig[i], data[i])) != HAL_OK) {
 				printf("! Error in writing update data \r\n");
 				Error_Handler();
@@ -736,24 +727,44 @@ void StartUpdateTask(void const * argument)
 		}
 
 		printf("\r\n");
-		printf("Successfully read data after update: %s \r\n", VarDataTabRead);
+		printf("Data read after update: %s \r\n", VarDataTabRead);
 		printf("\r\n");
 
-		for(uint16_t i = 0; i < dataLengthOrig+10; i++){
-			printf("%u", VarDataTabRead[i]);
-		}
-		printf("\r\n");
 
 	  version++;
 	  printf("Code update successful \r\n");
 
+	  // Check if other two tasks are still running
+	  if(xTaskGetHandle("statusTask") == NULL){
+		  printf("StatusTask gone \r\n");
+	  }
+	  if(xTaskGetHandle("defaultTask") == NULL){
+		  printf("DefaultTask gone \r\n");
+	  }
 
-	  // Resume watchdog:
-	  //vTaskResume(statusTaskHandle);
-
-	  osDelay(1);
   }
   /* USER CODE END StartUpdateTask */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM5 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM5) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
 }
 
 /**
